@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::fs;
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct Node {
@@ -20,31 +21,40 @@ impl Node {
     }
 }
 
-pub fn run(text: &str) {
-    if !text.is_empty() {
-        
-        let binary = text.as_bytes();
-        let mut binary_rep = "".to_string();
-        for c in binary {
-            binary_rep += &format!("0{:b}", c);
-        }
-        println!("Number of bits pre-compression: {}", binary_rep.len());
-        let freq_map = get_frequencies(text);
-        println!("Freq map: {:?}", freq_map);
-        let tree = build_huffman_tree(freq_map);
-        let mut huffman_codes: HashMap<char, String> = HashMap::new();
-        generate_huffman_codes(Some(Box::new(tree)), String::new(), &mut huffman_codes);
-        println!("Huffman codes: {:?}", huffman_codes);
-        let mut compressed_binary = "".to_string();
-        for c in text.chars() {
-            let char_code = huffman_codes.get(&c);
-            compressed_binary += char_code.unwrap();
-        }
-        println!("Number of bits post-compression: {}", compressed_binary.len());
-
-    } else {
+pub fn run(text: &str, output_path: &str) -> std::io::Result<()> {
+    if text.is_empty() {
         println!("Error: The slice cannot be empty");
+        return Ok(());
     }
+
+    let freq_map = get_frequencies(text);
+    let tree = build_huffman_tree(freq_map);
+    let mut huffman_codes: HashMap<char, String> = HashMap::new();
+    generate_huffman_codes(Some(Box::new(tree)), String::new(), &mut huffman_codes);
+
+    let mut encoded_bits = String::new();
+    for ch in text.chars() {
+        encoded_bits.push_str(huffman_codes.get(&ch).unwrap());
+    }
+
+    // pad to a multiple of 8 bits so it can be written as bytes
+    let padding = (8 - (encoded_bits.len() % 8)) % 8;
+    encoded_bits.push_str(&"0".repeat(padding));
+
+    let mut bytes = Vec::new();
+    for chunk in encoded_bits.as_bytes().chunks(8) {
+        // each chunk is a slice of bytes e.g. [b'0', b'1', b'0', b'1', b'1', b'0', b'1', b'1']
+        // from_utf8 converts that back into a &str
+        let s = std::str::from_utf8(chunk).unwrap();
+        // from_str_radix takes the &str and converts it to a base 2 integer.
+        // the byte is then pushed to the vector.
+        bytes.push(u8::from_str_radix(s, 2).unwrap());
+    }
+
+    fs::write(output_path, bytes)?;
+
+    println!("Compressed file written to: {}", output_path);
+    Ok(())
 }
 
 fn get_frequencies(text: &str) -> HashMap<char, u32> {
