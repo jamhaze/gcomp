@@ -1,6 +1,29 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::fs;
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(
+    version, 
+    about = "This is a command line tool for compressing a .FASTA file", 
+    long_about = None
+)]
+pub struct Cli {
+    #[arg(
+        short,
+        long, 
+        help = "Enter the path to the file which should be compressed",
+    )]
+    file_path: String,
+
+    #[arg(
+        short,
+        long, 
+        help = "Enter the path to the compressed output file",
+    )]
+    output_path: String,
+}    
 
 #[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
 struct Node {
@@ -21,13 +44,15 @@ impl Node {
     }
 }
 
-pub fn run(text: &str, output_path: &str) -> std::io::Result<()> {
+pub fn run(config: Cli) -> std::io::Result<()> {
+    let text = fs::read_to_string(config.file_path)?;
+
     if text.is_empty() {
         println!("Error: The slice cannot be empty");
         return Ok(());
     }
 
-    let freq_map = get_frequencies(text);
+    let freq_map = get_frequencies(&text);
     let tree = build_huffman_tree(freq_map);
     let mut huffman_codes: HashMap<char, String> = HashMap::new();
     generate_huffman_codes(Some(Box::new(tree)), String::new(), &mut huffman_codes);
@@ -51,9 +76,9 @@ pub fn run(text: &str, output_path: &str) -> std::io::Result<()> {
         bytes.push(u8::from_str_radix(s, 2).unwrap());
     }
 
-    fs::write(output_path, bytes)?;
+    fs::write(&config.output_path, bytes)?;
 
-    println!("Compressed file written to: {}", output_path);
+    println!("Compressed file written to: {}", &config.output_path);
     Ok(())
 }
 
