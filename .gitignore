@@ -2,3 +2,5 @@
 *.gc
 todo.md
 *.fna
+*.txt
+out
