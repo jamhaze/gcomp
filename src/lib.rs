@@ -7,7 +7,7 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(
     version, 
-    about = "This is a command line tool for compressing a .FASTA file", 
+    about = "This is a command line tool for compressing and decompressing a file", 
     long_about = None
 )]
 pub struct Config {
@@ -226,23 +226,23 @@ fn compress_to_file(text_as_bytes: &[u8], freq_map: BTreeMap<u8, u32>, huffman_c
 mod tests {
     use super::*;
 
-    fn example_freq_map() -> HashMap<char, u32> {
-        HashMap::from([
-            ('A', 4),
-            ('G', 3),
-            ('C', 2),
-            ('T', 1),
+    fn example_freq_map() -> BTreeMap<u8, u32> {
+        BTreeMap::from([
+            (b'A', 4),
+            (b'G', 3),
+            (b'C', 2),
+            (b'T', 1),
         ])
     }
 
     fn example_tree() -> Node {
         Node {
-            symbol: None,
+            byte: None,
             score: 10,
             left: Some(
                 Box::new(
                     Node {
-                        symbol: Some('A'),
+                        byte: Some(b'A'),
                         score: 4,
                         left: None,
                         right: None,
@@ -252,12 +252,12 @@ mod tests {
             right: Some(
                 Box::new(
                     Node {
-                        symbol: None,
+                        byte: None,
                         score: 6,
                         left: Some(
                             Box::new(
                                 Node {
-                                    symbol: Some('G'),
+                                    byte: Some(b'G'),
                                     score: 3,
                                     left: None,
                                     right: None,
@@ -267,12 +267,12 @@ mod tests {
                         right: Some(
                             Box::new(
                                 Node {
-                                    symbol: None,
+                                    byte: None,
                                     score: 3,
                                     left: Some(
                                         Box::new(
                                             Node {
-                                                symbol: Some('T'),
+                                                byte: Some(b'T'),
                                                 score: 1,
                                                 left: None,
                                                 right: None,
@@ -282,7 +282,7 @@ mod tests {
                                     right: Some(
                                         Box::new(
                                             Node {
-                                                symbol: Some('C'),
+                                                byte: Some(b'C'),
                                                 score: 2,
                                                 left: None,
                                                 right: None,
@@ -300,9 +300,9 @@ mod tests {
 
     #[test]
     fn test_get_frequencies() {
-        let test_text = "AGATACGCAG";
+        let text_as_bytes = "AGATACGCAG".as_bytes();
         let expected = example_freq_map();
-        let freq_map = get_frequencies(test_text);
+        let freq_map = get_byte_frequencies(text_as_bytes);
         assert_eq!(expected, freq_map);
     }
 
@@ -310,7 +310,7 @@ mod tests {
     fn test_build_huffman_tree() {
         let freq_map = example_freq_map();
         let expected = example_tree();
-        let huffman_tree = build_huffman_tree(freq_map);
+        let huffman_tree = build_huffman_tree(&freq_map);
         assert_eq!(expected, huffman_tree);
     }
 
@@ -318,13 +318,13 @@ mod tests {
     fn test_generate_huffman_codes() {
         let tree = example_tree();
         let expected = HashMap::from([
-            ('A', String::from("0")),
-            ('G', String::from("10")),
-            ('T', String::from("110")),
-            ('C', String::from("111")),
+            (b'A', vec![0]),
+            (b'G', vec![1, 0]),
+            (b'T', vec![1, 1, 0]),
+            (b'C', vec![1, 1, 1]),
         ]);
-        let mut huffman_codes: HashMap<char, String> = HashMap::new();
-        generate_huffman_codes(Some(Box::new(tree)), String::new(), &mut huffman_codes);
+        let mut huffman_codes: HashMap<u8, Vec<u8>> = HashMap::new();
+        generate_huffman_codes(Some(Box::new(tree)), vec![], &mut huffman_codes);
         assert_eq!(expected, huffman_codes);
     }
 }
